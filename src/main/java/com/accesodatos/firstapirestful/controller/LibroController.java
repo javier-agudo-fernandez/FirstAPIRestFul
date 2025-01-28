@@ -2,108 +2,110 @@ package com.accesodatos.firstapirestful.controller;
 
 import com.accesodatos.firstapirestful.interfacesjparepo.LibroRepository;
 import com.accesodatos.firstapirestful.modelo.Libro;
-import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cache.annotation.CacheConfig;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.validation.FieldError;
-import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.nio.file.Path;
-import java.util.HashMap;
+import java.net.URI;
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/libros")
-
 public class LibroController {
-    LibroRepository repositorioLibros;
-
-    public LibroController(){
-    }
 
     @Autowired
-    public LibroController(LibroRepository repositorioLibros){
-        this.repositorioLibros = repositorioLibros;
-    }
+    private LibroRepository repositorioLibros;
 
-    //GET --> SELECT *
+    // GET --> Obtener todos los libros
     @GetMapping
-    public ResponseEntity<List<Libro>> getLibro(){
-        List<Libro> lista = this.repositorioLibros.findAll();
-        System.out.println(lista);
+    public ResponseEntity<List<Libro>> getLibro() {
+        List<Libro> lista = repositorioLibros.findAll();
+        if (lista.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NO_CONTENT, "No hay libros disponibles");
+        }
         return ResponseEntity.ok(lista);
     }
 
-    //GET BY ISBN --> SELECT BY ISBN
+    // GET BY ISBN --> Obtener un libro por ISBN
     @GetMapping("/{isbn}")
-    @Cacheable
-    public ResponseEntity<Libro> getLibroJson(@PathVariable String isbn){
-        Libro l = this.repositorioLibros.findById(isbn).get();
-        return ResponseEntity.ok(l);
+    public ResponseEntity<Libro> getLibroJson(@PathVariable String isbn) {
+        return repositorioLibros.findById(isbn)
+                .map(ResponseEntity::ok)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Libro no encontrado"));
     }
 
-    //POST --> INSERT
+    // POST --> Insertar un nuevo libro
     @PostMapping
-    public ResponseEntity<Libro> addLibro(@Valid @RequestBody Libro libro){
-        System.out.println("Entra aqui");
-        Libro libroPersistido = this.repositorioLibros.save(libro);
-        return ResponseEntity.ok().body(libroPersistido);
+    public ResponseEntity<Libro> addLibro(@RequestBody Libro libro) {
+        if (repositorioLibros.existsById(libro.getIsbn())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "El ISBN ya está registrado");
+        }
+        Libro libroPersistido = repositorioLibros.save(libro);
+        return ResponseEntity.created(URI.create("/libros/" + libroPersistido.getIsbn())).body(libroPersistido);
     }
 
-    //POST con Form normal, se trabajará con JSONs normalmente...
+    // POST con Form normal
     @PostMapping(value = "/libroForm", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Libro> addLibroForm(@RequestParam String isbn,
                                               @RequestParam String titulo,
-                                              @RequestParam String autor){
+                                              @RequestParam String autor) {
+        if (repositorioLibros.existsById(isbn)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "El ISBN ya está registrado");
+        }
+
         Libro libro = new Libro();
         libro.setIsbn(isbn);
         libro.setTitulo(titulo);
         libro.setAutor(autor);
-        this.repositorioLibros.save(libro);
-        return ResponseEntity.created(null).body(libro);
+        Libro libroPersistido = repositorioLibros.save(libro);
+
+        return ResponseEntity.created(URI.create("/libros/" + libroPersistido.getIsbn())).body(libroPersistido);
     }
 
-    //POST con Form normal y fichero, se trabajará con JSONs normalmente...
+    // POST con Form y archivo
     @PostMapping(value = "/libroFormFichero", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Libro> addLibroFormFichero(@RequestParam String isbn,
                                                      @RequestParam String titulo,
                                                      @RequestParam String autor,
-                                                     @RequestParam MultipartFile imagen){
-        //Datos básicos del libro
+                                                     @RequestParam MultipartFile imagen) {
+        if (repositorioLibros.existsById(isbn)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "El ISBN ya está registrado");
+        }
+
         Libro libro = new Libro();
         libro.setIsbn(isbn);
         libro.setTitulo(titulo);
         libro.setAutor(autor);
+        repositorioLibros.save(libro);
 
-        //guardado en la bbdd del libro
-        this.repositorioLibros.save(libro);
-
-        //devolución del objeto en formato json para el cliente
-        return ResponseEntity.created(null).body(libro);
+        return ResponseEntity.created(URI.create("/libros/" + libro.getIsbn())).body(libro);
     }
 
-    //PUT --> UPDATE
-    //falta actualizar ficheros
+    // PUT --> Actualizar libro
     @PutMapping("/{isbn}")
-    public ResponseEntity<Libro> updateLibro(@RequestBody Libro libro, @PathVariable String isbn){
-        Libro libroPersistido = repositorioLibros.save(libro);
-        return ResponseEntity.ok().body(libroPersistido);
+    public ResponseEntity<Libro> updateLibro(@PathVariable String isbn, @RequestBody Libro libro) {
+        if (!repositorioLibros.existsById(isbn)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Libro no encontrado");
+        }
+
+        libro.setIsbn(isbn); // Asegurar que se mantiene el mismo ISBN
+        Libro libroActualizado = repositorioLibros.save(libro);
+
+        return ResponseEntity.ok(libroActualizado);
     }
 
-    //DELETE
+    // DELETE --> Eliminar libro
     @DeleteMapping("/{isbn}")
-    public ResponseEntity<String> deleteLibro(@PathVariable String isbn){
+    public ResponseEntity<Void> deleteLibro(@PathVariable String isbn) {
+        if (!repositorioLibros.existsById(isbn)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Libro no encontrado");
+        }
+
         repositorioLibros.deleteById(isbn);
-        String mensaje = "libro con isbn: "+isbn+" borrado";
-        return ResponseEntity.ok().body(mensaje);
+        return ResponseEntity.noContent().build();
     }
 }
-
-

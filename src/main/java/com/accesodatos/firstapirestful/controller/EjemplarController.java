@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.net.URI;
 import java.util.List;
 
 @RestController
@@ -23,58 +24,80 @@ public class EjemplarController {
     @Autowired
     private LibroRepository libroRepository;
 
+    // Obtener todos los ejemplares
     @GetMapping
     public ResponseEntity<List<Ejemplar>> getEjemplares() {
-        return ResponseEntity.ok(ejemplarRepository.findAll());
+        List<Ejemplar> ejemplares = ejemplarRepository.findAll();
+        if (ejemplares.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NO_CONTENT, "No hay ejemplares disponibles");
+        }
+        return ResponseEntity.ok(ejemplares);
     }
 
+    // Obtener ejemplar por ID
     @GetMapping("/{id}")
     public ResponseEntity<Ejemplar> getEjemplarById(@PathVariable Integer id) {
         return ejemplarRepository.findById(id)
                 .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Ejemplar no encontrado"));
     }
 
+    // Crear un nuevo ejemplar
     @PostMapping
     public ResponseEntity<Ejemplar> addEjemplar(@RequestBody Ejemplar ejemplar) {
-        // Buscar el libro por ISBN
+        if (ejemplar.getLibro() == null || ejemplar.getLibro().getIsbn() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El ejemplar debe estar asociado a un libro con ISBN");
+        }
+
+
         Libro libro = libroRepository.findById(ejemplar.getLibro().getIsbn())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Libro no encontrado"));
 
-        // Asociar el libro al ejemplar
         ejemplar.setLibro(libro);
-
-        // Guardar el ejemplar (Spring JPA se encarga de asociar el libro automáticamente)
         Ejemplar savedEjemplar = ejemplarRepository.save(ejemplar);
 
-        return ResponseEntity.ok(savedEjemplar);
+        return ResponseEntity.created(URI.create("/ejemplares/" + savedEjemplar.getId())).body(savedEjemplar);
     }
 
+    // Crear un ejemplar desde formulario (Multipart Form)
     @PostMapping(value = "/EjemplarForm", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<Ejemplar> addEjemplarForm(@RequestParam String isbn,
-                                                    @RequestParam String estado){
-        Libro libro = this.libroRepository.findById(isbn)
+    public ResponseEntity<Ejemplar> addEjemplarForm(@RequestParam String isbn, @RequestParam String estado) {
+        Libro libro = libroRepository.findById(isbn)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Libro no encontrado"));
+
         Ejemplar ejemplarToPost = new Ejemplar();
         ejemplarToPost.setLibro(libro);
         ejemplarToPost.setEstado(estado);
-        this.ejemplarRepository.save(ejemplarToPost);
-        return ResponseEntity.created(null).body(ejemplarToPost);
+
+        Ejemplar savedEjemplar = ejemplarRepository.save(ejemplarToPost);
+
+        return ResponseEntity.created(URI.create("/ejemplares/" + savedEjemplar.getId())).body(savedEjemplar);
     }
 
+    // Actualizar un ejemplar
     @PutMapping("/{id}")
     public ResponseEntity<Ejemplar> updateEjemplar(@PathVariable Integer id, @RequestBody Ejemplar ejemplar) {
-        if (!ejemplarRepository.existsById(id)) {
-            return ResponseEntity.notFound().build();
+        if (ejemplar.getLibro() == null || ejemplar.getLibro().getIsbn() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El ejemplar debe tener un libro asociado con ISBN");
         }
-        ejemplar.setId(id);
-        return ResponseEntity.ok(ejemplarRepository.save(ejemplar));
+
+        return ejemplarRepository.findById(id).map(existingEjemplar -> {
+            Libro libro = libroRepository.findById(ejemplar.getLibro().getIsbn())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Libro no encontrado"));
+
+            existingEjemplar.setLibro(libro);
+            existingEjemplar.setEstado(ejemplar.getEstado());
+
+            Ejemplar updatedEjemplar = ejemplarRepository.save(existingEjemplar);
+            return ResponseEntity.ok(updatedEjemplar);
+        }).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Ejemplar no encontrado"));
     }
 
+    // Eliminar un ejemplar
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteEjemplar(@PathVariable Integer id) {
         if (!ejemplarRepository.existsById(id)) {
-            return ResponseEntity.notFound().build();
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Ejemplar no encontrado");
         }
         ejemplarRepository.deleteById(id);
         return ResponseEntity.noContent().build();
