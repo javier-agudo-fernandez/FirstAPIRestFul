@@ -2,6 +2,7 @@ package com.accesodatos.firstapirestful.controller;
 
 import com.accesodatos.firstapirestful.interfacesjparepo.LibroRepository;
 import com.accesodatos.firstapirestful.modelo.Libro;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -40,7 +41,7 @@ public class LibroController {
 
     // POST --> Insertar un nuevo libro
     @PostMapping
-    public ResponseEntity<Libro> addLibro(@RequestBody Libro libro) {
+    public ResponseEntity<Libro> addLibro(@Valid @RequestBody Libro libro) {
         if (repositorioLibros.existsById(libro.getIsbn())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "El ISBN ya está registrado");
         }

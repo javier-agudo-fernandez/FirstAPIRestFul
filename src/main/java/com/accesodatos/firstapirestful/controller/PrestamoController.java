@@ -6,6 +6,7 @@ import com.accesodatos.firstapirestful.interfacesjparepo.UsuarioRepository;
 import com.accesodatos.firstapirestful.modelo.Prestamo;
 import com.accesodatos.firstapirestful.modelo.Usuario;
 import com.accesodatos.firstapirestful.modelo.Ejemplar;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -43,7 +44,7 @@ public class PrestamoController {
 
     // Obtener préstamo por ID
     @GetMapping("/{id}")
-    public ResponseEntity<Prestamo> getPrestamoById(@PathVariable Integer id) {
+    public ResponseEntity<Prestamo> getPrestamoById(@Valid @PathVariable Integer id) {
         return prestamoRepository.findById(id)
                 .map(ResponseEntity::ok)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Préstamo no encontrado"));
@@ -51,7 +52,7 @@ public class PrestamoController {
 
     // Crear un préstamo con JSON
     @PostMapping
-    public ResponseEntity<Prestamo> addPrestamo(@RequestBody Prestamo prestamo) {
+    public ResponseEntity<Prestamo> addPrestamo(@Valid @RequestBody Prestamo prestamo) {
         if (prestamo.getUsuario() == null || prestamo.getEjemplar() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Usuario y ejemplar son obligatorios.");
         }

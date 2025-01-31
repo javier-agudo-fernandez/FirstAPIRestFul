@@ -65,6 +65,7 @@ public class Usuario {
 
     public void setDni(String dni) {
         this.dni = dni;
+
     }
 
     public String getNombre() {

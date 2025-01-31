@@ -4,6 +4,7 @@ import com.accesodatos.firstapirestful.interfacesjparepo.EjemplarRepository;
 import com.accesodatos.firstapirestful.interfacesjparepo.LibroRepository;
 import com.accesodatos.firstapirestful.modelo.Ejemplar;
 import com.accesodatos.firstapirestful.modelo.Libro;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -44,7 +45,7 @@ public class EjemplarController {
 
     // Crear un nuevo ejemplar
     @PostMapping
-    public ResponseEntity<Ejemplar> addEjemplar(@RequestBody Ejemplar ejemplar) {
+    public ResponseEntity<Ejemplar> addEjemplar(@Valid @RequestBody Ejemplar ejemplar) {
         if (ejemplar.getLibro() == null || ejemplar.getLibro().getIsbn() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El ejemplar debe estar asociado a un libro con ISBN");
         }

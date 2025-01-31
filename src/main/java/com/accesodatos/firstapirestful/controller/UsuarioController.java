@@ -2,6 +2,8 @@ package com.accesodatos.firstapirestful.controller;
 
 import com.accesodatos.firstapirestful.interfacesjparepo.UsuarioRepository;
 import com.accesodatos.firstapirestful.modelo.Usuario;
+import com.accesodatos.firstapirestful.util.Validador;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -37,9 +39,12 @@ public class UsuarioController {
 
     // Crear un nuevo usuario
     @PostMapping
-    public ResponseEntity<Usuario> addUsuario(@RequestBody Usuario usuario) {
+    public ResponseEntity<Usuario> addUsuario(@Valid  @RequestBody Usuario usuario) {
         if (usuario.getNombre() == null || usuario.getNombre().isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El nombre del usuario es obligatorio.");
+        }
+        if(!Validador.validarDocumentoIdentidad(usuario.getDni())){
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Dni no valido.");
         }
 
         Usuario usuarioGuardado = usuarioRepository.save(usuario);
@@ -51,6 +56,9 @@ public class UsuarioController {
     public ResponseEntity<Usuario> updateUsuario(@PathVariable Integer id, @RequestBody Usuario usuario) {
         if (!usuarioRepository.existsById(id)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuario no encontrado.");
+        }
+        if(!Validador.validarDocumentoIdentidad(usuario.getDni())){
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Dni no valido.");
         }
 
         usuario.setId(id);
